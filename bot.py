@@ -12,8 +12,10 @@ from telegram.ext import (
     filters,
 )
 
-TOKEN = "7945577967:AAGX0HI8tOptFdJfesejOArnE3pndAojwyM"
-ADMIN_ID = 8249302541
+import os
+
+TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 # ---------- АЛМАЗЫ ----------
 PRICES = {
@@ -277,4 +279,5 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
+
     main()
