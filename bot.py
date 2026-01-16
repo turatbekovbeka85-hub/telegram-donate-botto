@@ -14,7 +14,7 @@ from telegram.ext import (
 
 import os
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 # ---------- АЛМАЗЫ ----------
@@ -281,3 +281,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
