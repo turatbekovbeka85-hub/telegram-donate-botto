@@ -1,3 +1,4 @@
+import os
 from telegram import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
@@ -12,9 +13,7 @@ from telegram.ext import (
     filters,
 )
 
-import os
-
-TOKEN = os.getenv("TOKEN")
+TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 # ---------- АЛМАЗЫ ----------
@@ -51,7 +50,6 @@ VOUCHERS = {
 
 ORDERS = {}
 
-# ---------- УДАЛЕНИЕ ----------
 async def cleanup_messages(context, uid):
     order = ORDERS.get(uid)
     if not order:
@@ -62,7 +60,6 @@ async def cleanup_messages(context, uid):
         except:
             pass
 
-# ---------- МЕНЮ ----------
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 Купить алмазы", callback_data="buy")],
@@ -76,7 +73,6 @@ def back_btn():
         [InlineKeyboardButton("⬅️ Назад", callback_data="back")]
     ])
 
-# ---------- START ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.message.from_user.id
 
@@ -91,7 +87,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     ORDERS[uid] = {"messages": [msg.message_id]}
 
-# ---------- CALLBACK ----------
 async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -100,185 +95,39 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ORDERS.setdefault(uid, {"messages": []})
     ORDERS[uid]["messages"].append(q.message.message_id)
 
-    # ---- АЛМАЗЫ ----
     if q.data == "buy":
-        kb = [
-            [InlineKeyboardButton(f"{v[0]} — {v[1]} сом", callback_data=f"item_{k}")]
-            for k, v in PRICES.items()
-        ]
+        kb = [[InlineKeyboardButton(f"{v[0]} — {v[1]} сом", callback_data=f"item_{k}")]
+              for k, v in PRICES.items()]
         kb.append([InlineKeyboardButton("⬅️ Назад", callback_data="back")])
         await q.message.edit_text("💎 Выберите пакет:", reply_markup=InlineKeyboardMarkup(kb))
 
-    # ---- ВАУЧЕРЫ ----
     elif q.data == "voucher":
-        kb = [
-            [InlineKeyboardButton(f"{v[0]} — {v[1]} сом", callback_data=f"voucher_{k}")]
-            for k, v in VOUCHERS.items()
-        ]
+        kb = [[InlineKeyboardButton(f"{v[0]} — {v[1]} сом", callback_data=f"voucher_{k}")]
+              for k, v in VOUCHERS.items()]
         kb.append([InlineKeyboardButton("⬅️ Назад", callback_data="back")])
         await q.message.edit_text("🎫 Выберите ваучер:", reply_markup=InlineKeyboardMarkup(kb))
-
-    # ---- ВЫБОР АЛМАЗОВ ----
-    elif q.data.startswith("item_"):
-        item = int(q.data.split("_")[1])
-        ORDERS[uid].update({"type": "diamonds", "item": item, "step": "wait_photo"})
-        name, price = PRICES[item]
-
-        await q.message.edit_text(
-            f"💳 Оплата\n\n"
-            f"О!Деньги: 0508077494\n"
-            f"Получатель: Беглан К\n\n"
-            f"💎 {name}\n"
-            f"💰 {price} сом\n\n"
-            f"📸 Отправьте ФОТО чека (без текста)",
-            reply_markup=back_btn()
-        )
-
-    # ---- ВЫБОР ВАУЧЕРА ----
-    elif q.data.startswith("voucher_"):
-        item = int(q.data.split("_")[1])
-        ORDERS[uid].update({"type": "voucher", "item": item, "step": "wait_photo"})
-        name, price = VOUCHERS[item]
-
-        await q.message.edit_text(
-            f"💳 Оплата\n\n"
-            f"О!Деньги: 0508077494\n"
-            f"Получатель: Беглан К\n\n"
-            f"{name}\n"
-            f"💰 {price} сом\n\n"
-            f"📸 Отправьте ФОТО чека (без текста)",
-            reply_markup=back_btn()
-        )
-
-    elif q.data == "support":
-        await q.message.edit_text("🆘 Поддержка\n\n@budget_shop1", reply_markup=back_btn())
-
-    elif q.data == "info":
-        await q.message.edit_text(
-            "ℹ️ Информация\n\n"
-            "• Оплата по чеку\n"
-            "• Проверка администратором\n"
-            "• Время: 5–30 минут",
-            reply_markup=back_btn()
-        )
 
     elif q.data == "back":
         await q.message.edit_text("Главное меню:", reply_markup=main_menu())
 
-    elif q.data.startswith("check_ok_"):
-        target = int(q.data.split("_")[2])
-        ORDERS[target]["step"] = "wait_id"
-        await context.bot.send_message(target, "✅ Оплата принята\n✏️ Отправьте игровой ID")
-
-    elif q.data.startswith("check_no_"):
-        target = int(q.data.split("_")[2])
-        await cleanup_messages(context, target)
-        ORDERS.pop(target, None)
-        await context.bot.send_message(target, "❌ Платёж отклонён")
-
-    elif q.data.startswith("id_ok_"):
-        target = int(q.data.split("_")[2])
-        await cleanup_messages(context, target)
-        ORDERS.pop(target, None)
-        await context.bot.send_message(target, "💎 Услуга успешно выполнена ✅")
-
-    elif q.data.startswith("id_no_"):
-        target = int(q.data.split("_")[2])
-        await cleanup_messages(context, target)
-        ORDERS.pop(target, None)
-        await context.bot.send_message(target, "🚫 Неправильный ID, платёж отклонён")
-
-# ---------- ФОТО ----------
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    if uid not in ORDERS or ORDERS[uid].get("step") != "wait_photo":
-        return
+    pass
 
-    ORDERS[uid]["step"] = "wait_admin"
-    ORDERS[uid]["messages"].append(update.message.message_id)
-
-    order = ORDERS[uid]
-    user = update.message.from_user
-
-    if order["type"] == "diamonds":
-        name, price = PRICES[order["item"]]
-        title = "💎 АЛМАЗЫ"
-    else:
-        name, price = VOUCHERS[order["item"]]
-        title = "🎫 ВАУЧЕР"
-
-    caption = (
-        f"🧾 ЧЕК ОПЛАТЫ ({title})\n\n"
-        f"👤 @{user.username or 'без_username'}\n"
-        f"🆔 {user.id}\n\n"
-        f"{name}\n"
-        f"💰 {price} сом"
-    )
-
-    kb = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ Подтвердить", callback_data=f"check_ok_{uid}"),
-            InlineKeyboardButton("❌ Отклонить", callback_data=f"check_no_{uid}")
-        ]
-    ])
-
-    await context.bot.send_photo(
-        ADMIN_ID,
-        update.message.photo[-1].file_id,
-        caption=caption,
-        reply_markup=kb
-    )
-
-    msg = await update.message.reply_text("⏳ Чек отправлен администратору")
-    ORDERS[uid]["messages"].append(msg.message_id)
-
-# ---------- ID ----------
 async def id_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    if uid not in ORDERS or ORDERS[uid].get("step") != "wait_id":
-        return
+    pass
 
-    ORDERS[uid]["messages"].append(update.message.message_id)
-    order = ORDERS[uid]
-    user = update.message.from_user
-
-    if order["type"] == "diamonds":
-        name, price = PRICES[order["item"]]
-    else:
-        name, price = VOUCHERS[order["item"]]
-
-    kb = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ Выполнено", callback_data=f"id_ok_{uid}"),
-            InlineKeyboardButton("❌ Отклонить", callback_data=f"id_no_{uid}")
-        ]
-    ])
-
-    await context.bot.send_message(
-        ADMIN_ID,
-        f"🎮 ID от @{user.username or 'без_username'}\n\n"
-        f"🆔 {update.message.text}\n\n"
-        f"{name}\n"
-        f"💰 {price} сом",
-        reply_markup=kb
-    )
-
-    msg = await update.message.reply_text("⏳ ID отправлен администратору")
-    ORDERS[uid]["messages"].append(msg.message_id)
-
-# ---------- RUN ----------
 def main():
-    app = Application.builder().token(TOKEN).build()
+    if not TOKEN or not ADMIN_ID:
+        raise RuntimeError("❌ BOT_TOKEN или ADMIN_ID не заданы в Render")
 
+    app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, id_handler))
-
-    print("✅ Бот запущен")
     app.run_polling()
 
 if __name__ == "__main__":
-
     main()
+
 
