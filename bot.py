@@ -271,7 +271,9 @@ async def id_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ORDERS[uid]["messages"].append(msg.message_id)
 
 # ---------- RUN ----------
-def main():
+import asyncio
+
+async def run_bot():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -280,10 +282,17 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, id_handler))
 
     print("✅ Бот запущен")
-    app.run_polling()
+
+    await app.initialize()
+    await app.start()
+    await app.bot.initialize()
+    await app.updater.start_polling()
+
+    await asyncio.Event().wait()  # чтобы Render не убивал процесс
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(run_bot())
+
 
 
 
